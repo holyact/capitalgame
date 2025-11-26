@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>국가별 수도 맞추기 게임</title>
+    <!-- Tailwind CSS CDN --><script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font - Inter (Korean font will be a system default) --><style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            /* 파스텔톤 배경색 */
+            background-color: #e0f2f7; /* Light Cyan */
+        }
+        /* Custom styles for a better look */
+        .card {
+            box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            transition: all 0.2s;
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        .option-btn:hover:not(:disabled) {
+            background-color: #f0fdf4; /* Light Mint Green */
+            border-color: #a7f3d0; /* Green-300 */
+            color: #10b981; /* Green-600 */
+        }
+        .option-btn {
+            border-width: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="game-container" class="w-full max-w-lg">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-extrabold text-teal-600 mb-2">🌍 수도 퀴즈 챌린지</h1>
+            <p class="text-lg text-gray-600">제시된 국가의 수도를 보기 중에서 골라보세요!</p>
+        </header>
+
+        <div class="bg-white card rounded-xl p-8 space-y-6">
+
+            <!-- Score and Status --><div class="flex justify-between items-center pb-4 border-b border-gray-100">
+                <div class="text-lg font-semibold text-gray-700">
+                    점수: <span id="score" class="text-teal-500 font-bold">0</span>
+                </div>
+                <div class="text-lg font-semibold text-gray-700">
+                    <span id="question-count">1/18</span>
+                </div>
+            </div>
+
+            <!-- Question Area --><div id="question-area" class="text-center min-h-[100px] flex flex-col justify-center">
+                <p class="text-xl text-gray-500 mb-3" id="instruction-text">다음 국가의 수도는 어디일까요?</p>
+                <h2 id="country-name" class="text-5xl font-extrabold text-gray-900 animate-pulse">나라 이름</h2>
+            </div>
+
+            <!-- Input and Feedback --><div class="space-y-4">
+                
+                <!-- 수도 선택 옵션 (Multiple Choice) --><div id="options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Option buttons will be injected here by JavaScript --></div>
+
+                <div id="feedback" class="min-h-[20px] text-center text-lg font-medium">
+                    <!-- Feedback messages appear here --></div>
+
+                <button
+                    id="next-button"
+                    onclick="loadNextQuestion()"
+                    class="btn-primary w-full py-3 bg-gradient-to-r from-green-300 to-teal-400 text-white font-bold rounded-lg text-xl hover:from-green-400 hover:to-teal-500 focus:outline-none focus:ring-4 focus:ring-green-200 shadow-lg shadow-green-300/50 hidden"
+                >
+                    다음 문제
+                </button>
+            </div>
+
+            <!-- Game Over Modal (Hidden by default) --><div id="game-over-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center p-4" style="z-index: 100;">
+                <div class="bg-white rounded-xl p-8 text-center max-w-sm w-full space-y-6">
+                    <h3 class="text-3xl font-bold text-teal-700">게임 종료! 🎉</h3>
+                    <p class="text-xl text-gray-700">최종 점수:</p>
+                    <p id="final-score" class="text-5xl font-extrabold text-pink-500">0</p>
+                    <button
+                        onclick="restartGame()"
+                        class="btn-primary w-full py-3 bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold rounded-lg text-lg hover:from-pink-500 hover:to-purple-500 focus:ring-pink-300 shadow-lg shadow-pink-300/50"
+                    >
+                        다시 시작
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let score = 0;
+        let questions = []; // 셔플된 질문 목록
+        let currentQuestionIndex = 0;
+        let isAnswered = false;
+
+        // 국가 및 수도 데이터
+        const allQuestions = [
+            { country: "대한민국", capital: "서울" },
+            { country: "일본", capital: "도쿄" },
+            { country: "미국", capital: "워싱턴 D.C." },
+            { country: "프랑스", capital: "파리" },
+            { country: "영국", capital: "런던" },
+            { country: "독일", capital: "베를린" },
+            { country: "중국", capital: "베이징" },
+            { country: "브라질", capital: "브라질리아" },
+            { country: "캐나다", capital: "오타와" },
+            { country: "호주", capital: "캔버라" },
+            { country: "이탈리아", capital: "로마" },
+            { country: "스페인", capital: "마드리드" },
+            { country: "러시아", capital: "모스크바" },
+            { country: "인도", capital: "뉴델리" },
+            { country: "멕시코", capital: "멕시코시티" },
+            { country: "이집트", capital: "카이로" },
+            { country: "태국", capital: "방콕" },
+            { country: "스위스", capital: "베른" },
+        ];
+
+        // DOM 요소 캐시
+        const countryNameEl = document.getElementById('country-name');
+        const feedbackEl = document.getElementById('feedback');
+        const scoreEl = document.getElementById('score');
+        const questionCountEl = document.getElementById('question-count');
+        const nextButton = document.getElementById('next-button');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const finalScoreEl = document.getElementById('final-score');
+        const optionsContainer = document.getElementById('options-container'); // 옵션 컨테이너
+
+        // 배열 셔플 함수 (피셔-예이츠 알고리즘)
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // 게임 초기화
+        function initializeGame() {
+            score = 0;
+            currentQuestionIndex = 0;
+            isAnswered = false;
+            // 질문 목록을 섞어서 저장
+            questions = shuffleArray([...allQuestions]);
+            
+            // UI 초기화
+            gameOverModal.classList.add('hidden');
+            scoreEl.textContent = score;
+            nextButton.classList.add('hidden');
+            feedbackEl.textContent = '';
+            
+            loadQuestion();
+        }
+
+        // 새 질문 로드
+        function loadQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                endGame();
+                return;
+            }
+
+            isAnswered = false;
+            optionsContainer.innerHTML = ''; // 기존 옵션 제거
+            feedbackEl.textContent = '';
+            nextButton.classList.add('hidden');
+
+            const currentQuestion = questions[currentQuestionIndex];
+            countryNameEl.textContent = currentQuestion.country;
+            questionCountEl.textContent = `${currentQuestionIndex + 1}/${questions.length}`;
+
+            // 1. 정답과 오답 목록 생성
+            const correctAnswer = currentQuestion.capital;
+            const allCapitals = allQuestions.map(q => q.capital);
+            
+            // 정답을 제외한 다른 수도들을 오답으로 사용 (3개 선택)
+            const distractors = shuffleArray(allCapitals.filter(c => c !== correctAnswer)).slice(0, 3);
+            
+            let options = [correctAnswer, ...distractors];
+            options = shuffleArray(options); // 옵션 순서 섞기
+
+            // 2. 옵션 버튼 생성
+            options.forEach(capital => {
+                const button = document.createElement('button');
+                button.textContent = capital;
+                button.setAttribute('data-capital', capital);
+                button.onclick = () => checkGuess(capital, button);
+                // 파스텔톤 기본 스타일
+                button.className = 'option-btn w-full p-4 border-2 border-green-300 rounded-lg text-lg font-semibold bg-white text-teal-600 transition duration-150 shadow-md';
+                optionsContainer.appendChild(button);
+            });
+
+
+            // 애니메이션 제거 및 재추가 (리셋)
+            countryNameEl.classList.remove('animate-pulse');
+            setTimeout(() => countryNameEl.classList.add('animate-pulse'), 10);
+            
+            // 첫 번째 버튼에 포커스
+            document.querySelector('.option-btn')?.focus();
+        }
+
+        // 사용자 정답 확인 (선택지 클릭 기반)
+        function checkGuess(selectedCapital, clickedButton) {
+            if (isAnswered) return;
+
+            isAnswered = true;
+            
+            const currentQuestion = questions[currentQuestionIndex];
+            const correctAnswer = currentQuestion.capital;
+            
+            // 모든 옵션 버튼 비활성화 및 기본 스타일 제거
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.remove('hover:bg-blue-100', 'bg-white', 'border-blue-400', 'text-blue-600');
+                btn.classList.add('bg-gray-100', 'border-gray-200', 'text-gray-400'); // 파스텔톤 비활성화
+            });
+
+            if (selectedCapital === correctAnswer) {
+                // 정답 처리
+                score++;
+                scoreEl.textContent = score;
+                feedbackEl.textContent = `✅ 정답입니다! ${currentQuestion.capital}`;
+                feedbackEl.className = 'min-h-[20px] text-center text-xl font-medium text-green-600 font-bold mt-4';
+                
+                // 정답 버튼 강조
+                clickedButton.classList.remove('bg-gray-100', 'text-gray-400');
+                clickedButton.classList.add('bg-green-300', 'text-green-800', 'border-green-400', 'ring-4', 'ring-green-100'); // 파스텔 그린
+
+            } else {
+                // 오답 처리
+                feedbackEl.textContent = `❌ 오답입니다. 정답은 ${correctAnswer}였습니다.`;
+                feedbackEl.className = 'min-h-[20px] text-center text-xl font-medium text-red-500 font-bold mt-4';
+
+                // 오답 버튼 강조
+                clickedButton.classList.remove('bg-gray-100', 'text-gray-400');
+                clickedButton.classList.add('bg-red-300', 'text-red-800', 'border-red-400', 'ring-4', 'ring-red-100'); // 파스텔 레드
+                
+                // 정답 버튼을 찾아서 표시
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    if (btn.getAttribute('data-capital') === correctAnswer) {
+                         btn.classList.remove('bg-gray-100', 'text-gray-400');
+                         btn.classList.add('bg-green-100', 'text-green-700', 'border-green-300'); // 정답 표시 (옅은 그린)
+                    }
+                });
+            }
+            
+            // 다음 문제 버튼 표시
+            nextButton.classList.remove('hidden'); 
+            nextButton.focus();
+        }
+
+        // 다음 문제로 이동
+        function loadNextQuestion() {
+            if (!isAnswered) return; // 정답을 맞힌 후에만 이동 가능
+            
+            currentQuestionIndex++;
+            loadQuestion();
+        }
+
+        // 게임 종료
+        function endGame() {
+            finalScoreEl.textContent = `${score} / ${questions.length}`;
+            gameOverModal.classList.remove('hidden');
+        }
+
+        // 게임 재시작
+        function restartGame() {
+            initializeGame();
+        }
+
+        // 초기화 및 게임 시작
+        window.onload = initializeGame;
+    </script>
+</body>
+</html>
